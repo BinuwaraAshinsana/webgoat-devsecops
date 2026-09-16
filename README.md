@@ -1,51 +1,22 @@
 # WebGoat DevSecOps Security Project
+Secure CI/CD pipeline for OWASP WebGoat
 
-
-
-## Project Overview
-
-
-
-This project focuses on building and securing a DevSecOps pipeline around OWASP WebGoat.
-
-
-
-WebGoat is an intentionally vulnerable web application used for security testing and secure coding exercises.
-
-
+## Overview
+This project demonstrates how to build and secure a DevSecOps pipeline around OWASP WebGoat, an intentionally vulnerable web application used for secure coding practice and security testing.
 
 ## Team
+- M1 — Architecture & Containerization
+- M2 — Threat Modeling & Risk Assessment
+- M3 — Secure Coding / Exploit-and-Fix
+- M4 — CI/CD Pipeline & Secrets Management
 
+## Setup
+### Prerequisites
+- Docker Desktop installed
+- Docker Compose v2 available
 
-
-| Member | Responsibility |
-
-|---|---|
-
-| M1 | Architecture \& Containerisation |
-
-| M2 | Threat Modelling \& Risk Assessment |
-
-| M3 | Secure Coding / Exploit-and-Fix |
-
-| M4 | CI/CD Pipeline \& Secrets Management |
-
-
-
-## Running the Application
-
-
-
-Make sure Docker Desktop is running.
-
-
-
-Start the application using:
-
-
-
+### Run
 ```bash
-
 docker compose up
 
 
