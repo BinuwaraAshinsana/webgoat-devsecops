@@ -14,7 +14,7 @@ WebGoat is an intentionally vulnerable web application used for security testing
 
 
 
-\## Team
+## Team
 
 
 
