@@ -1,0 +1,19 @@
+# IDE files
+.idea/
+.vscode/
+
+# Java build files
+target/
+*.class
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment/secrets
+.env
+.env.*
+!.env.example
