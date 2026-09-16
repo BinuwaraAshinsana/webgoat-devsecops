@@ -1,8 +1,8 @@
-\# WebGoat DevSecOps Security Project
+# WebGoat DevSecOps Security Project
 
 
 
-\## Project Overview
+## Project Overview
 
 
 
@@ -32,7 +32,7 @@ WebGoat is an intentionally vulnerable web application used for security testing
 
 
 
-\## Running the Application
+## Running the Application
 
 
 
