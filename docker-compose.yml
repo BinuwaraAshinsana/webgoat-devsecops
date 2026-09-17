@@ -1,6 +1,8 @@
 services:
   webgoat:
-    image: webgoat/webgoat
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: webgoat
     ports:
       - "127.0.0.1:8080:8080"
