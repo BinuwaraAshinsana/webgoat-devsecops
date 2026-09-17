@@ -43,6 +43,37 @@ docker --version
 docker compose version
 java -version
 ```
+Java should report version **25**.
+
+Also verify that the Maven Wrapper is using Java 25:
+
+```powershell
+.\mvnw.cmd -version
+```
+
+The output should contain something similar to:
+
+```text
+Java version: 25.x
+```
+
+### JAVA_HOME
+
+On Windows, `JAVA_HOME` should point to the installed JDK 25 directory.
+
+Example:
+
+```text
+JAVA_HOME=C:\Program Files\Java\jdk-25.0.4
+```
+
+The Windows `Path` environment variable should contain:
+
+```text
+%JAVA_HOME%\bin
+```
+
+---
 
 ## Getting Started
 
