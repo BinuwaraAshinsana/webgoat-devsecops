@@ -171,3 +171,21 @@ webgoat-devsecops/
 OWASP WebGoat is intentionally vulnerable and is designed for security education and testing.
 
 The Docker Compose configuration binds the application to `127.0.0.1` so that WebGoat is not intentionally exposed to external network interfaces.
+
+## Upstream Project and License
+
+This project is based on OWASP WebGoat, an intentionally vulnerable
+web application developed and maintained by the OWASP WebGoat project.
+
+The WebGoat source code is used and modified in this repository for
+educational purposes as part of a university DevSecOps security project.
+
+Original project:
+OWASP WebGoat — https://github.com/WebGoat/WebGoat
+
+WebGoat is distributed under the GNU General Public License (GPL).
+The original license and copyright notices are retained in this repository.
+
+The DevSecOps configuration, architecture documentation, threat modelling,
+security fixes, and CI/CD controls in this repository represent the work
+performed by the student project team.
