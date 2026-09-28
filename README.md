@@ -24,7 +24,7 @@ The application runs inside a Docker container using Java/Spring Boot.
 
 The architecture diagram is available at:
 
-`docs/architecture.png`
+`docs/diagrams/architecture.png`
 
 ## Prerequisites
 
@@ -43,6 +43,7 @@ docker --version
 docker compose version
 java -version
 ```
+
 Java should report version **25**.
 
 Also verify that the Maven Wrapper is using Java 25:
@@ -150,17 +151,106 @@ The response should report:
 docker compose down
 ```
 
+To also discard the container's database volume and start from a clean slate:
+
+```bash
+docker compose down -v
+```
+
+## Running the Tests
+
+The test suite runs on the host with the Maven Wrapper — it does not need Docker.
+
+Unit tests only:
+
+```bash
+./mvnw test
+```
+
+On Windows PowerShell:
+
+```powershell
+.\mvnw.cmd test
+```
+
+Full verification (unit tests, integration tests and the formatting check that
+the build enforces):
+
+```bash
+./mvnw verify
+```
+
+A single test class:
+
+```bash
+./mvnw test -Dtest=SqlInjectionLesson5aTest
+```
+
+Surefire writes reports to `target/surefire-reports/`. Integration tests live in
+`src/it/java` and include Playwright UI tests, which download a browser on first
+run — expect the first `verify` to take noticeably longer.
+
+If the build fails on formatting rather than on a test, apply the formatter and
+re-run:
+
+```bash
+./mvnw spotless:apply
+```
+
+## Secrets and Configuration
+
+No credentials are committed to this repository. Configuration reaches the
+application through environment variables.
+
+### Local development
+
+`.env.example` is the committed template listing every variable the application
+supports, with placeholder values only. Copy it and fill in real values locally:
+
+```bash
+cp .env.example .env
+```
+
+`.env` is gitignored (`.gitignore` ignores `.env` and `.env.*`, with an explicit
+exception for `.env.example`). Never commit it. If you add a new variable, add
+it to `.env.example` with a placeholder value in the same commit, so the rest of
+the team knows it exists.
+
+Every variable name in `.env.example` is read by
+`src/main/resources/application-webgoat.properties` or
+`application-webwolf.properties` — ports, bind addresses, context paths, the TLS
+keystore and the optional GitHub OAuth client credentials used by the OAuth
+lessons.
+
+> **Current limitation:** `docker-compose.yml` does not yet perform `${VARIABLE}`
+> substitution, so values in `.env` are not picked up by `docker compose` today.
+> Wiring compose to the environment is outstanding work.
+
+### Pipeline
+
+Secrets for CI are stored as **GitHub Actions encrypted secrets**
+(Settings → Secrets and variables → Actions) and injected into workflow steps as
+environment variables. They are never written into workflow files, and never
+echoed to the job log.
+
 ## Project Structure
 
 ```text
 webgoat-devsecops/
-├── src/                 # WebGoat source code
-├── config/              # Application configuration
-├── docs/                # Architecture documentation
-├── .mvn/                # Maven Wrapper files
-├── Dockerfile           # Container definition
-├── docker-compose.yml   # Container orchestration
-├── pom.xml              # Maven configuration
+├── src/                     # WebGoat source code
+│   ├── main/                #   application code and resources
+│   ├── test/                #   unit tests
+│   └── it/                  #   integration and Playwright UI tests
+├── config/                  # Checkstyle, dependency-check and desktop configs
+├── docs/
+│   ├── diagrams/            #   architecture diagram (draw.io source + PNG)
+│   ├── evidence/            #   exploit screenshots and SAST scan output
+│   └── report/              #   technical report drafts
+├── .mvn/                    # Maven Wrapper files
+├── .env.example             # Environment variable template (no real values)
+├── Dockerfile               # Container definition
+├── docker-compose.yml       # Container orchestration
+├── pom.xml                  # Maven configuration
 ├── mvnw
 ├── mvnw.cmd
 └── README.md
@@ -168,24 +258,9 @@ webgoat-devsecops/
 
 ## Security Notice
 
-OWASP WebGoat is intentionally vulnerable and is designed for security education and testing.
+OWASP WebGoat is intentionally vulnerable and is designed for security education
+and testing. Do not run it on an untrusted network, and do not expose it to the
+public internet.
 
-The Docker Compose configuration binds the application to `127.0.0.1` so that WebGoat is not intentionally exposed to external network interfaces.
-
-## Upstream Project and License
-
-This project is based on OWASP WebGoat, an intentionally vulnerable
-web application developed and maintained by the OWASP WebGoat project.
-
-The WebGoat source code is used and modified in this repository for
-educational purposes as part of a university DevSecOps security project.
-
-Original project:
-OWASP WebGoat — https://github.com/WebGoat/WebGoat
-
-WebGoat is distributed under the GNU General Public License (GPL).
-The original license and copyright notices are retained in this repository.
-
-The DevSecOps configuration, architecture documentation, threat modelling,
-security fixes, and CI/CD controls in this repository represent the work
-performed by the student project team.
+The Docker Compose configuration publishes the application on `127.0.0.1` only,
+so that WebGoat is not unintentionally exposed on external network interfaces.
