@@ -9,7 +9,9 @@ import static io.restassured.RestAssured.given;
 import io.restassured.RestAssured;
 import io.restassured.filter.log.LogDetail;
 import io.restassured.http.ContentType;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
 import org.hamcrest.CoreMatchers;
 import org.hamcrest.MatcherAssert;
@@ -167,6 +169,41 @@ public abstract class IntegrationTest {
     MatcherAssert.assertThat(
         result.then().statusCode(200).extract().jsonPath().getList("solved"),
         CoreMatchers.everyItem(CoreMatchers.is(true)));
+  }
+
+  /**
+   * Like {@link #checkResults(String)}, but tolerates named assignments that are expected to be
+   * unsolvable. Used where an intentionally vulnerable assignment has been deliberately patched, so
+   * the lesson can no longer be completed in full and every other assignment must still pass.
+   *
+   * @param lesson the lesson name
+   * @param expectedUnsolved assignment names (e.g. {@code SqlInjectionLesson5a}) that must report
+   *     solved=false
+   */
+  public void checkResultsExcept(String lesson, String... expectedUnsolved) {
+    var unsolved = Set.of(expectedUnsolved);
+    var json =
+        RestAssured.given()
+            .when()
+            .relaxedHTTPSValidation()
+            .cookie("JSESSIONID", getWebGoatCookie())
+            .get(webGoatUrlConfig.url("service/lessonoverview.mvc/%s.lesson".formatted(lesson)))
+            .then()
+            .statusCode(200)
+            .extract()
+            .jsonPath();
+
+    List<String> names = json.getList("assignment.name");
+    List<Boolean> solved = json.getList("solved");
+    MatcherAssert.assertThat(
+        "lesson overview returned no assignments", names.isEmpty(), CoreMatchers.is(false));
+
+    for (int i = 0; i < names.size(); i++) {
+      var name = names.get(i);
+      var expected = !unsolved.contains(name);
+      MatcherAssert.assertThat(
+          "assignment %s solved state".formatted(name), solved.get(i), CoreMatchers.is(expected));
+    }
   }
 
   public void checkResults() {

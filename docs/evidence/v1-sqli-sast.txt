@@ -1,0 +1,25 @@
+V1 - SQL INJECTION - SAST BEFORE / AFTER
+============================================================
+Tool      : semgrep 1.178.0
+Rule packs: p/java, p/owasp-top-ten
+Before    : commit 7752c44 (tag baseline-sast), unmodified code
+After     : PreparedStatement fix applied to SqlInjectionLesson5a
+
+MODULE lessons/sqlinjection : 9 findings BEFORE -> 8 findings AFTER
+FILE   SqlInjectionLesson5a.java      : 1 findings BEFORE -> 0 findings AFTER
+
+RESOLVED (1):
+  - src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5a.java:52  formatted-sql-string
+
+NEWLY INTRODUCED (0):
+  (none - the fix introduced no new findings)
+
+REMAINING IN MODULE (other lessons, not part of V1):
+    src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java:60  tainted-sql-string
+    src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java:62  formatted-sql-string
+    src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson10.java:56  formatted-sql-string
+    src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson5b.java:69  formatted-sql-string
+    src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson8.java:62  formatted-sql-string
+    src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson8.java:142  formatted-sql-string
+    src/main/java/org/owasp/webgoat/lessons/sqlinjection/introduction/SqlInjectionLesson9.java:65  formatted-sql-string
+    src/main/java/org/owasp/webgoat/lessons/sqlinjection/mitigation/Servers.java:51  tainted-sql-string

@@ -56,7 +56,9 @@ public class SqlInjectionLessonIntegrationTest extends IntegrationTest {
     params.put("operator", sql_9_operator);
     params.put("account", sql_9_account);
     params.put("injection", sql_9_injection);
-      checkAssignment(webGoatUrlConfig.url("SqlInjection/assignment5a"), params, true);
+    // assignment5a has been patched to use a parameterised query (CWE-89 fix), so this payload
+    // is now bound as a literal last name and can no longer solve the assignment.
+    checkAssignment(webGoatUrlConfig.url("SqlInjection/assignment5a"), params, false);
 
     params.clear();
     params.put("login_count", sql_10_login_count);
@@ -77,6 +79,8 @@ public class SqlInjectionLessonIntegrationTest extends IntegrationTest {
     params.put("action_string", sql_13);
       checkAssignment(webGoatUrlConfig.url("SqlInjection/attack10"), params, true);
 
-    checkResults("SqlInjection");
+    // Every assignment except the patched one must still be solvable. SqlInjectionLesson5a is
+    // expected to stay unsolved: its vulnerability was fixed, which is the point of the fix.
+    checkResultsExcept("SqlInjection", "SqlInjectionLesson5a");
   }
 }

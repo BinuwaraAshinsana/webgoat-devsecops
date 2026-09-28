@@ -45,8 +45,16 @@ public class SqlInjectionLesson5aTest extends LessonTest {
         .andExpect(jsonPath("$.output").doesNotExist());
   }
 
+  /**
+   * Regression test for the CWE-89 fix in {@link SqlInjectionLesson5a}.
+   *
+   * <p>This previously asserted that the injection <em>succeeded</em>. Now that the query is
+   * parameterised the same payload is bound as a literal last name, matches no row, and cannot
+   * complete the assignment. Kept with the identical payload so it fails loudly if the
+   * parameterisation is ever reverted.
+   */
   @Test
-  public void sqlInjection() throws Exception {
+  public void sqlInjectionIsBlockedByParameterisedQuery() throws Exception {
     mockMvc
         .perform(
             MockMvcRequestBuilders.post("/SqlInjection/assignment5a")
@@ -54,13 +62,18 @@ public class SqlInjectionLesson5aTest extends LessonTest {
                 .param("operator", "OR")
                 .param("injection", "'1' = '1"))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("lessonCompleted", is(true)))
-        .andExpect(jsonPath("$.feedback", containsString("You have succeed")))
-        .andExpect(jsonPath("$.output").exists());
+        .andExpect(jsonPath("lessonCompleted", is(false)))
+        .andExpect(jsonPath("$.feedback", is(messages.getMessage("sql-injection.5a.no.results"))));
   }
 
+  /**
+   * Previously this malformed payload reached the database and produced a "malformed string" SQL
+   * error, which proved the input was being parsed as SQL. After parameterisation the same input is
+   * just an unmatched last name, so the endpoint reports no results instead of leaking a database
+   * error message. That also removes the error-based information disclosure.
+   */
   @Test
-  public void sqlInjectionWrongShouldDisplayError() throws Exception {
+  public void malformedInjectionIsTreatedAsLiteralValue() throws Exception {
     mockMvc
         .perform(
             MockMvcRequestBuilders.post("/SqlInjection/assignment5a")
@@ -69,13 +82,12 @@ public class SqlInjectionLesson5aTest extends LessonTest {
                 .param("injection", "'1' = '1'"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("lessonCompleted", is(false)))
-        .andExpect(
-            jsonPath("$.feedback", containsString(messages.getMessage("assignment.not.solved"))))
+        .andExpect(jsonPath("$.feedback", is(messages.getMessage("sql-injection.5a.no.results"))))
         .andExpect(
             jsonPath(
                 "$.output",
                 is(
-                    "malformed string: '1''<br> Your query was: SELECT * FROM user_data WHERE"
-                        + " first_name = 'John' and last_name = 'Smith' OR '1' = '1''")));
+                    "Your query was: SELECT * FROM user_data WHERE first_name = 'John' and"
+                        + " last_name = ?")));
   }
 }
