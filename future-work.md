@@ -140,23 +140,25 @@ they are done.
 
 ## 3. M3 — Secure Coding (11 marks) 🔴 **start here**
 
-### 3.1 Capture the SAST baseline — before any fix is committed
+### 3.1 Capture the SAST baseline — DONE
 
-Once a fix lands without a baseline, the before/after comparison is gone
-permanently. This is the single most time-critical task in the project.
+Captured 2026-09-28, commit `7752c44`, tagged `baseline-sast`.
+**20 findings: 14 ERROR, 6 WARNING.** Artefacts in `docs/evidence/`.
+
+The method that actually worked on Windows — Semgrep has no native Windows
+build, so `pip install semgrep` does not work. No Docker or WSL needed:
 
 ```bash
-pip install semgrep
-semgrep --config p/java --config p/owasp-top-ten --sarif -o docs/evidence/sast-baseline.sarif
-semgrep --config p/java --config p/owasp-top-ten --json  -o docs/evidence/sast-baseline.json
-git add docs/evidence/sast-baseline.*
-git commit -m "docs: add semgrep baseline scan before any fixes"
-git tag baseline-sast
-git push --tags
+uv run --with semgrep semgrep scan   --config p/java --config p/owasp-top-ten   --sarif-output=docs/evidence/sast-baseline.sarif   --json-output=docs/evidence/sast-baseline.json   --metrics=off
 ```
 
-- [ ] Baseline scan captured, committed and tagged
-- [ ] Total finding count recorded, plus the per-file count for each file to be fixed
+Set `PYTHONUTF8=1` first. Semgrep writes its output file using the system
+locale; on cp1252 it crashes when a rule message contains a non-Latin-1
+character. Use the identical command and rule packs for the after-scan and in
+M4's pipeline, or the numbers will not be comparable.
+
+- [x] Baseline scan captured, committed and tagged
+- [x] Total finding count recorded, plus per-file counts
 
 > Bandit is Python-only and does not apply to this Java stack. The PDF lists it
 > only as an example.
@@ -166,15 +168,41 @@ git push --tags
 At least four vulnerabilities, each with **all four** evidence stages. A fix with
 no demonstrated exploit counts as basic secure-coding evidence only.
 
-| # | Vulnerability | Module | Fix technique | Done |
-|---|---------------|--------|---------------|------|
-| V1 | SQL Injection | `lessons/sqlinjection` | `PreparedStatement` / parameterised query | [ ] |
-| V2 | Stored / reflected XSS | `lessons/xss` | Output encoding + CSP header | [ ] |
-| V3 | IDOR / missing access control | `lessons/idor`, `lessons/missingac` | Server-side authorisation check | [ ] |
-| V4 | Path traversal / XXE / JWT bypass | `lessons/pathtraversal`, `xxe`, `jwt` | Canonical path check / disable external entities / verify signature and algorithm | [ ] |
+**Selection revised 2026-09-28 against real baseline data.** The original picks
+of XSS and IDOR were dropped: both score **0 findings** at baseline, so they
+produce no before/after delta and cannot satisfy the SAST evidence requirement.
+That is not a tool failure — access-control flaws are semantic, and the code is
+syntactically correct, so no scanner can see the missing check. Worth one
+sentence in the report as a genuine limitation of SAST; not a basis for the
+headline evidence.
 
-`deserialization`, `ssrf`, `csrf`, `openredirect` and `insecurelogin` are also
-available in the repo if you want to swap.
+Every vulnerability below has a confirmed non-zero baseline count.
+
+| # | Vulnerability | Target file and line | Baseline | Fix technique | Done |
+|---|---|---|---:|---|---|
+| V1 | SQL injection | `lessons/sqlinjection/introduction/SqlInjectionLesson5a.java:52` | 9 across the module | `PreparedStatement` with bound parameters | [ ] |
+| V2 | Path traversal | `lessons/pathtraversal/ProfileUploadRetrieval.java:100` | 1 | Canonicalise the path, verify it stays inside the base directory | [ ] |
+| V3 | Open redirect | `lessons/openredirect/OpenRedirectRealRedirect.java:18` | 1 | Allowlist permitted redirect targets; reject absolute external URLs | [ ] |
+| V4 | Weak password hashing | `lessons/cryptography/HashingAssignment.java:39` | 1 | Replace MD5 with a modern KDF (bcrypt / Argon2) or SHA-256 + HMAC | [ ] |
+
+**All nine SQL injection findings**, if you want to fix more than one:
+
+| File | Line | Rule |
+|---|---:|---|
+| `sqlinjection/introduction/SqlInjectionLesson5a.java` | 52 | `formatted-sql-string` |
+| `sqlinjection/introduction/SqlInjectionLesson5b.java` | 69 | `formatted-sql-string` |
+| `sqlinjection/introduction/SqlInjectionLesson8.java` | 62 | `formatted-sql-string` |
+| `sqlinjection/introduction/SqlInjectionLesson8.java` | 142 | `formatted-sql-string` |
+| `sqlinjection/introduction/SqlInjectionLesson9.java` | 65 | `formatted-sql-string` |
+| `sqlinjection/introduction/SqlInjectionLesson10.java` | 56 | `formatted-sql-string` |
+| `sqlinjection/advanced/SqlInjectionChallenge.java` | 60 | `tainted-sql-string` |
+| `sqlinjection/advanced/SqlInjectionChallenge.java` | 62 | `formatted-sql-string` |
+| `sqlinjection/mitigation/Servers.java` | 51 | `tainted-sql-string` |
+
+**Other findings available as spares** — `challenges/challenge5/Assignment5.java:45,50`
+(SQL), `jwt/claimmisuse/JWTHeaderJKUEndpoint.java:57` (tainted URL host),
+`webwolf/FileServer.java:95` (tainted file path),
+`cryptography/EncodingAssignment.java:39` (tainted session).
 
 **Per vulnerability, all four stages:**
 
@@ -224,16 +252,33 @@ there is nothing to avoid.
 
 ### 4.3 Handle the deliberately-vulnerable-app problem
 
-WebGoat is intentionally insecure, so all four scanners return hundreds of
-findings and a naive "fail on HIGH" gate red-builds every commit forever. Pick
-one approach and **write the reasoning into the report** — that reasoning is
-itself worth marks:
+**Revised 2026-09-28 against real baseline data.** The earlier assumption — that
+all four scanners return hundreds of findings and any strict gate red-builds
+every commit — turned out to be **false for SAST**. Semgrep returns **20
+findings** on this repo, 19 of them first-party. Allowlisting 20 known findings
+is trivial, so the SAST gate can safely fail on **any new finding**, which is a
+far stronger and more defensible policy than scoping by directory.
 
-- [ ] (a) Baseline/allowlist the known intentional lesson findings, fail only on new ones, **or**
-- [ ] (b) Scope the failing gate to files changed in the PR, **or**
-- [ ] (c) Fail only on findings **outside** lesson code — `server/`, `container/`, `webwolf/`
+- [ ] SAST gate: allowlist the 20 baseline findings, fail the build on anything new
 
-(c) is the easiest to defend in a viva.
+The noise problem is still real for the other two scanners, which have not been
+run yet — Trivy against the image and Dependency-Check against the tree will
+both report large numbers on a deliberately outdated dependency set. Measure
+each one before designing its gate, rather than assuming:
+
+- [ ] Run Dependency-Check and Trivy once, record the counts, **then** pick a threshold
+- [ ] Whatever you choose, **write the reasoning into the report** — that reasoning
+      is itself worth marks
+
+Options for the noisy gates, if a count-based threshold proves unworkable:
+
+- (a) Baseline/allowlist known intentional findings, fail only on new ones
+- (b) Scope the failing gate to files changed in the pull request
+- (c) Fail only on findings **outside** lesson code — `server/`, `container/`, `webwolf/`
+
+> Note for the viva: "our SAST gate fails on any new finding, because we measured
+> the baseline at 20 rather than assuming it was hundreds" is a much better answer
+> than any of (a)–(c) on their own.
 
 ### 4.4 Make a gate genuinely fail 🔴 required
 
