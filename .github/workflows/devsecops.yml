@@ -1,0 +1,165 @@
+# DevSecOps pipeline for the IE3142 assignment.
+#
+# This is a new, security-focused workflow, separate from WebGoat's upstream build.
+# It builds and tests the application on every push and pull request, then runs the
+# four mandatory security gates: SAST, dependency (SCA), secret and container-image
+# scanning.
+#
+# Handling the "deliberately vulnerable app" problem (report section 4.3):
+#   WebGoat is intentionally insecure, so the SAST, SCA and image scanners find many
+#   known, intentional issues. Failing the build on those would red-build every commit
+#   forever, so those three gates RUN and PUBLISH their results as artifacts but do not
+#   fail the build. The two gates that MUST block are:
+#     - build:   compile, unit tests and formatting must pass.
+#     - secrets: a committed credential is never acceptable, regardless of the app's
+#                intentional code flaws, so Gitleaks hard-fails the build.
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Test (hard gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Temurin JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25" # pom.xml sets <java.version>25</java.version>
+          cache: maven
+
+      # Compile, run the unit tests and the Spotless formatting check, and build the
+      # jar. The heavy Playwright integration tests are skipped here to keep the
+      # security pipeline fast; the upstream build.yml still runs the full matrix.
+      - name: Build, unit-test and format-check
+        run: ./mvnw -B verify -DskipITs
+
+      - name: Upload application jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: webgoat-jar
+          path: target/webgoat-*.jar
+          if-no-files-found: error
+          retention-days: 1
+
+  sast:
+    name: SAST - Semgrep (report)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same rule packs the team used locally for the exploit-and-fix baseline, so the
+      # numbers in the pipeline match the numbers in the report. Report-only: findings
+      # are published as SARIF, the build is not failed on WebGoat's intentional flaws.
+      - name: Semgrep scan
+        run: |
+          semgrep scan \
+            --config p/java --config p/owasp-top-ten \
+            --sarif --output semgrep.sarif \
+            --metrics=off \
+            || echo "Semgrep reported findings (report-only gate)"
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif
+          if-no-files-found: warn
+
+  sca:
+    name: SCA - Trivy filesystem (report)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Scans declared dependencies (pom.xml) for known-vulnerable versions. Report-only:
+      # WebGoat intentionally ships outdated components for its vulnerablecomponents lesson.
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Upload Trivy fs SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-fs-sarif
+          path: trivy-fs.sarif
+          if-no-files-found: warn
+
+  secrets:
+    name: Secrets - Gitleaks (hard gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # scan the whole history, not just the tip commit
+
+      # HARD GATE: fails the build if any secret is found in the tree or the history.
+      # A committed credential is never acceptable, so this gate is not softened for
+      # the intentionally vulnerable app. This is also the gate used for the required
+      # "failing build" demo (commit a dummy key on a throwaway branch).
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  container:
+    name: Container image - Trivy (report)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reuse the jar the build job produced so the image we scan is the one the
+      # pipeline actually built (the Dockerfile copies target/webgoat-*.jar).
+      - name: Download application jar
+        uses: actions/download-artifact@v4
+        with:
+          name: webgoat-jar
+          path: target
+
+      - name: Build the container image
+        run: docker build -t webgoat-devsecops:ci .
+
+      # Scans the built image (OS packages + app dependencies). Report-only: the base
+      # image and WebGoat's intentional dependencies carry known CVEs.
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: image
+          image-ref: webgoat-devsecops:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Upload Trivy image SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-sarif
+          path: trivy-image.sarif
+          if-no-files-found: warn

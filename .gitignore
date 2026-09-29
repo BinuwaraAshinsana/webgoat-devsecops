@@ -20,3 +20,7 @@ Thumbs.db
 
 # Tooling output
 graphify-out/
+
+# Security scan output (local runs)
+*.sarif
+gitleaks-*.json

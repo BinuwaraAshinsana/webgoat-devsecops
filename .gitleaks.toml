@@ -1,0 +1,33 @@
+# Gitleaks configuration for the IE3142 DevSecOps pipeline.
+#
+# WebGoat is deliberately vulnerable and ships hard-coded JWTs, RSA keys and other
+# fixture "secrets" as teaching material inside its lesson modules. Those are not real
+# credentials, so scanning them would red-build every commit. This config extends the
+# default gitleaks ruleset and allowlists ONLY the intentional lesson areas, so the
+# secrets gate stays green on the baseline while still failing on a new, real secret
+# committed anywhere else (config, workflows, compose, properties, server code, ...).
+#
+# The failing-build demo commits a dummy key OUTSIDE these lesson paths, so the gate
+# fires as required.
+
+title = "WebGoat DevSecOps Gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Intentional WebGoat lesson secrets and build output - not real credentials."
+paths = [
+  # Every JWT lesson artifact: tokens embedded in docs, JS, tests and endpoints.
+  '''.*/jwt/.*''',
+  # Playwright UI test fixtures, which embed sample jwt.io example tokens.
+  '''.*/playwright/.*''',
+  # RSA keys used by the cryptography signing lesson.
+  '''.*/lessons/cryptography/CryptoUtil\.java''',
+  # Challenge 7 password-reset fixture.
+  '''.*/lessons/challenges/challenge7/.*''',
+  # Security-misconfiguration lesson (exposed actuator token sample).
+  '''.*/lessons/securitymisconfiguration/.*''',
+  # Compiled resources under target/ are a copy of the above and are gitignored anyway.
+  '''target/.*''',
+]
