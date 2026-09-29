@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  packages: read # let Trivy pull its vulnerability DB from ghcr.io authenticated
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -96,11 +97,17 @@ jobs:
 
       # Scans declared dependencies (pom.xml) for known-vulnerable versions. Report-only:
       # WebGoat intentionally ships outdated components for its vulnerablecomponents lesson.
+      # GITHUB_TOKEN authenticates the DB pull from ghcr.io so it is not rate-limited, and the
+      # step never fails the pipeline (report-only), always leaving a SARIF file to upload.
       - name: Trivy filesystem scan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           trivy fs --scanners vuln \
             --format sarif --output trivy-fs.sarif \
-            --severity CRITICAL,HIGH --exit-code 0 .
+            --severity CRITICAL,HIGH --exit-code 0 . \
+            || echo "::warning::Trivy fs scan did not complete cleanly (report-only gate)"
+          test -f trivy-fs.sarif || echo '{}' > trivy-fs.sarif
 
       - name: Upload Trivy fs SARIF
         if: always()
@@ -151,13 +158,18 @@ jobs:
             | sudo sh -s -- -b /usr/local/bin
 
       # Scans the built image (OS packages + app dependencies). Report-only: the base
-      # image and WebGoat's intentional dependencies carry known CVEs.
+      # image and WebGoat's intentional dependencies carry known CVEs. Same DB-auth and
+      # never-fail handling as the filesystem scan above.
       - name: Trivy image scan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           trivy image --scanners vuln \
             --format sarif --output trivy-image.sarif \
             --severity CRITICAL,HIGH --exit-code 0 \
-            webgoat-devsecops:ci
+            webgoat-devsecops:ci \
+            || echo "::warning::Trivy image scan did not complete cleanly (report-only gate)"
+          test -f trivy-image.sarif || echo '{}' > trivy-image.sarif
 
       - name: Upload Trivy image SARIF
         if: always()
