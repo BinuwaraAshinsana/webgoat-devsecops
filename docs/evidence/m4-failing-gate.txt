@@ -1,0 +1,24 @@
+M4 - FAILING SECURITY GATE - EVIDENCE
+============================================================
+Requirement: assignment section 2.4 / 4.4 - at least one gate must genuinely
+fail the pipeline (not just warn) when it detects a real issue; capture a run
+where this happens.
+
+Gate that fails : Secrets - Gitleaks (hard gate)
+Trigger         : a dummy AWS access key committed to demo/aws-credentials.txt
+                  on the throwaway branch demo/failing-gate (never merged to main)
+Finding         : aws-access-token  AKIA****************(redacted; see screenshot)
+                  in demo/aws-credentials.txt:5  (gitleaks "leaks found: 1")
+Result          : Gitleaks step exits 1 -> Secrets job fails -> overall run fails,
+                  while build, SAST (Semgrep), SCA (Trivy fs) and container
+                  (Trivy image) all pass.
+
+Failed run URL  : https://github.com/BinuwaraAshinsana/webgoat-devsecops/actions/runs/36595013172
+Screenshots     : m4-failing-gate-summary.png (run summary, Secrets gate red)
+                  m4-failing-gate-log.png     (Gitleaks step detecting the key)
+
+Note on the allowlist (section 4.3): .gitleaks.toml allowlists WebGoat's ~31
+intentional lesson secrets (JWTs, RSA keys) so the gate is green on the baseline,
+yet the key in demo/ - outside those lesson paths - is still caught. The gate
+scans the full working tree, so a secret is detected regardless of which commit
+introduced it.
