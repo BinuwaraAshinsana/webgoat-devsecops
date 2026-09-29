@@ -7,5 +7,17 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
       - "127.0.0.1:9090:9090"
+    # Configuration and secrets are injected from the environment, never hard-coded
+    # here. Compose interpolates ${VAR} from a gitignored .env file (copy .env.example
+    # to .env and fill it in) or from the shell; in CI the same variables come from
+    # GitHub Actions encrypted secrets. The ":-default" fallbacks are WebGoat's harmless
+    # development defaults for the bundled test keystore and the optional OAuth lessons -
+    # any real value comes from .env or the pipeline secret, so nothing sensitive lives
+    # in this file or in git.
     environment:
-      TZ: Asia/Colombo
+      TZ: ${TZ:-Asia/Colombo}
+      WEBGOAT_KEYSTORE_PASSWORD: ${WEBGOAT_KEYSTORE_PASSWORD:-password}
+      WEBGOAT_OAUTH_CLIENTID: ${WEBGOAT_OAUTH_CLIENTID:-dummy}
+      WEBGOAT_OAUTH_CLIENTSECRET: ${WEBGOAT_OAUTH_CLIENTSECRET:-dummy}
+      WEBWOLF_OAUTH_CLIENTID: ${WEBWOLF_OAUTH_CLIENTID:-dummy}
+      WEBWOLF_OAUTH_CLIENTSECRET: ${WEBWOLF_OAUTH_CLIENTSECRET:-dummy}

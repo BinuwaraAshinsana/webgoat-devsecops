@@ -222,16 +222,28 @@ Every variable name in `.env.example` is read by
 keystore and the optional GitHub OAuth client credentials used by the OAuth
 lessons.
 
-> **Current limitation:** `docker-compose.yml` does not yet perform `${VARIABLE}`
-> substitution, so values in `.env` are not picked up by `docker compose` today.
-> Wiring compose to the environment is outstanding work.
+`docker-compose.yml` interpolates these as `${VARIABLE}` and passes them into the
+container, so `docker compose up` picks up whatever is in `.env`. When a variable
+is unset, compose falls back to the harmless development default declared inline
+(`${VAR:-default}`), so nothing sensitive is ever hard-coded in the compose file.
 
 ### Pipeline
 
 Secrets for CI are stored as **GitHub Actions encrypted secrets**
 (Settings → Secrets and variables → Actions) and injected into workflow steps as
-environment variables. They are never written into workflow files, and never
-echoed to the job log.
+environment variables (`env: SECRET: ${{ secrets.SECRET }}`). They are never
+written into workflow files, and never echoed to the job log.
+
+### How a secret reaches each place
+
+|      Destination      |                                                                    Path                                                                     |
+|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| The running container | `.env` (gitignored) → compose `${VARIABLE}` interpolation → container environment → Spring reads it via `${VAR}` in the `.properties` files |
+| The CI pipeline       | GitHub Actions encrypted secret → `${{ secrets.NAME }}` → step `env:` → tool/process                                                        |
+
+Neither path stores a real value in git. The **Secrets - Gitleaks** gate in the
+pipeline scans the whole working tree on every push and fails the build if a
+credential is ever committed (see `docs/evidence/m4-failing-gate.txt`).
 
 ## Project Structure
 
