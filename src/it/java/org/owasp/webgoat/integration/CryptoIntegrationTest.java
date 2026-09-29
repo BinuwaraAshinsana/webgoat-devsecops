@@ -4,6 +4,8 @@
  */
 package org.owasp.webgoat.integration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import io.restassured.RestAssured;
@@ -46,7 +48,10 @@ public class CryptoIntegrationTest extends IntegrationTest {
 
     checkAssignmentDefaults();
 
-    checkResults("Cryptography");
+    // HashingAssignment is intentionally left unsolved: its MD5 hashing was fixed (CWE-328), so the
+    // md5 hash can no longer be reversed and that assignment cannot be completed. Every other
+    // Cryptography assignment must still pass.
+    checkResultsExcept("Cryptography", "HashingAssignment");
   }
 
   private void checkAssignment2() {
@@ -91,32 +96,23 @@ public class CryptoIntegrationTest extends IntegrationTest {
             .extract()
             .asString();
 
-      String sha256Hash =
-        RestAssured.given()
-            .when()
-            .relaxedHTTPSValidation()
-            .cookie("JSESSIONID", getWebGoatCookie())
-            .get(webGoatUrlConfig.url("crypto/hashing/sha256"))
-            .then()
-            .extract()
-            .asString();
-
+    // CWE-328 fix: the md5 endpoint now returns a salted bcrypt hash, not a reversible MD5. The
+    // rainbow-table crack below - matching the returned hash against the MD5 of each known secret -
+    // therefore no longer recovers the input, so the assignment can no longer be solved.
     String answer_1 = "unknown";
-    String answer_2 = "unknown";
     for (String secret : HashingAssignment.SECRETS) {
       if (md5Hash.equals(HashingAssignment.getHash(secret, "MD5"))) {
         answer_1 = secret;
       }
-      if (sha256Hash.equals(HashingAssignment.getHash(secret, "SHA-256"))) {
-        answer_2 = secret;
-      }
     }
+    assertTrue(md5Hash.startsWith("$2"), "expected a bcrypt hash, got: " + md5Hash);
+    assertEquals("unknown", answer_1, "bcrypt hash should not be crackable via an MD5 rainbow table");
 
     Map<String, Object> params = new HashMap<>();
     params.clear();
     params.put("answer_pwd1", answer_1);
-    params.put("answer_pwd2", answer_2);
-      checkAssignment(webGoatUrlConfig.url("crypto/hashing"), params, true);
+    params.put("answer_pwd2", "unknown");
+      checkAssignment(webGoatUrlConfig.url("crypto/hashing"), params, false);
   }
 
   private void checkAssignmentSigning() throws NoSuchAlgorithmException, InvalidKeySpecException {

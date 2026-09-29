@@ -1,0 +1,40 @@
+V4 - WEAK PASSWORD HASHING - SAST BEFORE / AFTER
+============================================================
+Tool      : semgrep 1.178.0
+Rule packs: p/java, p/owasp-top-ten
+Vuln class: CWE-327 / CWE-328 (Use of a Broken or Weak Cryptographic Hash)
+Before    : tag baseline-sast, unmodified code
+After     : MD5 replaced with salted bcrypt (BCryptPasswordEncoder)
+
+FILE  HashingAssignment.java : 1 finding BEFORE -> 0 findings AFTER
+
+RESOLVED (1):
+  - src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java:39
+    java.lang.security.audit.crypto.use-of-md5.use-of-md5  [WARNING]
+    "Detected MD5 hash algorithm which is considered insecure."
+
+NEWLY INTRODUCED (0):
+  (none)
+
+NOTE ON MODULE SCOPE
+  The lessons/cryptography module holds a second, unrelated baseline finding -
+  tainted-session-from-http-request in EncodingAssignment.java:39 - which is a
+  different vulnerability and is out of scope for V4. Scoped to the fixed file,
+  HashingAssignment.java goes 1 -> 0.
+
+NOTE ON THE FIX
+  MD5 is an unsalted, broken hash: MD5("password") is reversed instantly with a
+  precomputed rainbow table. The endpoint now hashes the secret with bcrypt
+  (BCryptPasswordEncoder), which salts every digest - so identical inputs give
+  different hashes and precomputed tables are useless - and is deliberately slow.
+  The exploit is genuinely blocked, not merely re-labelled: the same rainbow-table
+  lookup that recovered the MD5 plaintext returns nothing against the bcrypt hash.
+
+RESIDUAL RISK (documented for honesty)
+  This lesson's secret is always one of five publicly-known words. bcrypt defeats
+  the demonstrated exploit - a precomputed rainbow-table lookup - which the after
+  screenshot confirms (CrackStation returns "unrecognized hash format", not found).
+  The lesson can still be solved by brute-forcing the five known candidates through
+  bcrypt.matches(), but that is a small-keyspace weakness of the lesson design, not
+  of the hash function; no hash algorithm protects a secret drawn from five known
+  words. The CWE-328 finding (use of MD5) is fully resolved.

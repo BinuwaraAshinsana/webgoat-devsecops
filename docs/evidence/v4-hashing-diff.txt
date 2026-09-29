@@ -1,0 +1,29 @@
+diff --git a/src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java b/src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java
+index 62d3275..8808d62 100644
+--- a/src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java
++++ b/src/main/java/org/owasp/webgoat/lessons/cryptography/HashingAssignment.java
+@@ -16,6 +16,7 @@ import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
+ import org.owasp.webgoat.container.assignments.AssignmentHints;
+ import org.owasp.webgoat.container.assignments.AttackResult;
+ import org.springframework.http.MediaType;
++import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+ import org.springframework.web.bind.annotation.PostMapping;
+ import org.springframework.web.bind.annotation.RequestMapping;
+ import org.springframework.web.bind.annotation.RequestParam;
+@@ -36,10 +37,12 @@ public class HashingAssignment implements AssignmentEndpoint {
+ 
+       String secret = SECRETS[new Random().nextInt(SECRETS.length)];
+ 
+-      MessageDigest md = MessageDigest.getInstance("MD5");
+-      md.update(secret.getBytes());
+-      byte[] digest = md.digest();
+-      md5Hash = DatatypeConverter.printHexBinary(digest).toUpperCase();
++      // SECURITY FIX (CWE-327 / CWE-328): MD5 is a broken, unsalted hash. An MD5 digest of a
++      // dictionary word is reversed in milliseconds with a precomputed rainbow table, so it must
++      // not be used to protect a secret. Use bcrypt instead: it salts every digest (so identical
++      // inputs produce different hashes and precomputed tables are useless) and is deliberately
++      // slow (so brute force is expensive). This is the OWASP-recommended way to hash passwords.
++      md5Hash = new BCryptPasswordEncoder().encode(secret);
+       request.getSession().setAttribute("md5Hash", md5Hash);
+       request.getSession().setAttribute("md5Secret", secret);
+     }
