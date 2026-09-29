@@ -4,6 +4,8 @@
  */
 package org.owasp.webgoat.lessons.openredirect;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,9 +17,44 @@ import org.springframework.web.servlet.ModelAndView;
 @Controller
 public class OpenRedirectRealRedirect {
 
+  // A known-safe local page to fall back to when the requested target is not allowed. This is
+  // WebGoat's own post-login landing page (see WebSecurityConfig.defaultSuccessUrl), so it is a
+  // real mapped endpoint rather than a lesson path that would 404.
+  private static final String SAFE_FALLBACK = "/welcome.mvc";
+
   @GetMapping("/OpenRedirect/realRedirect")
   public ModelAndView real(@RequestParam("url") String url) {
-    // Intentionally vulnerable: no validation
-    return new ModelAndView("redirect:" + url);
+    // SECURITY FIX (CWE-601): the url parameter was attacker-controlled and flowed straight into
+    // the redirect, so ?url=https://evil.example sent the victim off to an external site. Only
+    // redirect to a relative path rooted inside this application; absolute URLs, protocol-relative
+    // URLs (//host), and backslash variants all fall back to a known-safe local page. Redirecting
+    // to the derived path rather than the raw input keeps the tainted value out of the sink.
+    String target = toSafeRelativePath(url).orElse(SAFE_FALLBACK);
+    return new ModelAndView("redirect:" + target);
+  }
+
+  private static java.util.Optional<String> toSafeRelativePath(String url) {
+    if (url == null || url.isBlank()) {
+      return java.util.Optional.empty();
+    }
+    // Reject anything that is not a path rooted at this app: "//host" and "/\host" address another
+    // host, and a leading scheme (http:, https:, javascript:) escapes the application entirely.
+    if (!url.startsWith("/") || url.startsWith("//") || url.startsWith("/\\")) {
+      return java.util.Optional.empty();
+    }
+    try {
+      URI uri = new URI(url);
+      if (uri.getScheme() != null || uri.getHost() != null || uri.getAuthority() != null) {
+        return java.util.Optional.empty();
+      }
+      // Rebuild the destination from the parsed path so the raw request value is never redirected.
+      String path = uri.getRawPath();
+      if (uri.getRawQuery() != null) {
+        path += "?" + uri.getRawQuery();
+      }
+      return java.util.Optional.of(path);
+    } catch (URISyntaxException e) {
+      return java.util.Optional.empty();
+    }
   }
 }

@@ -36,10 +36,25 @@ class OpenRedirectLessonMetadataTest {
     assertThat(response.getViewName()).isEqualTo("redirect:/welcome.mvc");
   }
 
+  /**
+   * Regression test for the CWE-601 fix in {@link OpenRedirectRealRedirect}. This previously
+   * asserted the endpoint redirected to whatever external URL was supplied; it now must refuse an
+   * off-site target and fall back to a safe local page.
+   */
   @Test
-  void realRedirectReturnsRedirectPrefixForSuppliedUrl() {
-    ModelAndView response = realRedirect.real("https://attacker.example");
+  void realRedirectRejectsExternalUrlAndFallsBackLocally() {
+    assertThat(realRedirect.real("https://attacker.example").getViewName())
+        .isEqualTo("redirect:/welcome.mvc");
+    // Protocol-relative and backslash variants that also escape to another host are refused.
+    assertThat(realRedirect.real("//attacker.example").getViewName())
+        .isEqualTo("redirect:/welcome.mvc");
+    assertThat(realRedirect.real("/\\attacker.example").getViewName())
+        .isEqualTo("redirect:/welcome.mvc");
+  }
 
-    assertThat(response.getViewName()).isEqualTo("redirect:https://attacker.example");
+  @Test
+  void realRedirectAllowsRelativeLocalPath() {
+    assertThat(realRedirect.real("/welcome.mvc").getViewName())
+        .isEqualTo("redirect:/welcome.mvc");
   }
 }

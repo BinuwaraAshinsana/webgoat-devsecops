@@ -1,0 +1,29 @@
+V3 - OPEN REDIRECT - SAST BEFORE / AFTER
+============================================================
+Tool      : semgrep 1.178.0
+Rule packs: p/java, p/owasp-top-ten
+Vuln class: CWE-601 (URL Redirection to Untrusted Site / Open Redirect)
+Before    : tag baseline-sast, unmodified code
+After     : allowlist to relative local paths; redirect to the parsed path, not raw input
+
+MODULE lessons/openredirect     : 1 finding BEFORE -> 0 findings AFTER
+FILE   OpenRedirectRealRedirect.java : 1 finding BEFORE -> 0 findings AFTER
+
+RESOLVED (1):
+  - src/main/java/org/owasp/webgoat/lessons/openredirect/OpenRedirectRealRedirect.java:18
+    java.spring.security.audit.spring-unvalidated-redirect.spring-unvalidated-redirect  [WARNING]
+    An unvalidated request parameter flowed straight into a Spring "redirect:" view.
+
+NEWLY INTRODUCED (0):
+  (none - the fix introduced no new findings)
+
+NOTE ON THE FIX
+  The endpoint redirected to "redirect:" + the raw url request parameter, so
+  ?url=https://evil.example sent the victim off-site. The fix uses an allowlist:
+  only a relative path rooted in the application is permitted (no scheme, no host,
+  not "//host" or "/\host"); anything else falls back to a safe local page. The
+  destination is rebuilt from the parsed URI path rather than the raw parameter,
+  so the tainted value never reaches the redirect sink - which is why the taint
+  finding clears. An allowlist is used deliberately rather than a blocklist of
+  "http://", which attackers bypass with //host, backslashes or scheme tricks;
+  the regression test pins those bypass variants.
