@@ -122,17 +122,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # scan the whole history, not just the tip commit
 
-      # HARD GATE: fails the build if any secret is found in the tree or the history.
-      # A committed credential is never acceptable, so this gate is not softened for
-      # the intentionally vulnerable app. This is also the gate used for the required
-      # "failing build" demo (commit a dummy key on a throwaway branch).
-      - name: Gitleaks scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # HARD GATE: scan the ENTIRE working tree (every file, current state) for secrets
+      # using our allowlist config - not just the pushed diff, so a credential is caught
+      # no matter which commit introduced it. Fails the build on any finding; a committed
+      # credential is never acceptable, so this gate is not softened for the intentionally
+      # vulnerable app. This is the gate the failing-build demo triggers. Uses the same
+      # gitleaks image the config was validated against locally.
+      - name: Gitleaks scan (full working tree)
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest \
+            detect --source /repo --no-git \
+            --config /repo/.gitleaks.toml \
+            --exit-code 1 --verbose
 
   container:
     name: Container image - Trivy (report)
