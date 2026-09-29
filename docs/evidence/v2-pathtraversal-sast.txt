@@ -1,0 +1,30 @@
+V2 - PATH TRAVERSAL - SAST BEFORE / AFTER
+============================================================
+Tool      : semgrep 1.178.0
+Rule packs: p/java, p/owasp-top-ten
+Vuln class: CWE-22 (Improper Limitation of a Pathname to a Restricted Directory)
+Before    : tag baseline-sast, unmodified code
+After     : FilenameUtils.getName() input sanitisation + canonical containment
+
+MODULE lessons/pathtraversal : 1 finding BEFORE -> 0 findings AFTER
+FILE   ProfileUploadRetrieval.java : 1 finding BEFORE -> 0 findings AFTER
+
+RESOLVED (1):
+  - src/main/java/org/owasp/webgoat/lessons/pathtraversal/ProfileUploadRetrieval.java:100
+    java.lang.security.httpservlet-path-traversal.httpservlet-path-traversal  [ERROR]
+    "Detected a potential path traversal. A malicious actor could control the
+     location of this file, to include going backwards in the directory with '../'"
+
+NEWLY INTRODUCED (0):
+  (none - the fix introduced no new findings)
+
+NOTE ON THE FIX
+  A first attempt added only a canonical-path containment check AFTER the file was
+  built from the raw parameter. That blocked the exploit at runtime (the regression
+  test passes) but Semgrep still reported the finding, because the tainted value
+  still reached the new File(...) sink and the taint rule does not recognise the
+  later canonical check as a sanitiser. The fix was strengthened to strip the
+  directory component from the input with FilenameUtils.getName() BEFORE building
+  the path (OWASP's primary control for path traversal), so the sanitised value is
+  what reaches the sink. This both clears the SAST finding and is a stronger fix;
+  the canonical check is retained as defence in depth.

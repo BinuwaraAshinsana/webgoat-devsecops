@@ -18,6 +18,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.Base64;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.owasp.webgoat.container.CurrentUsername;
 import org.owasp.webgoat.container.assignments.AssignmentEndpoint;
@@ -97,8 +98,23 @@ public class ProfileUploadRetrieval implements AssignmentEndpoint {
     }
     try {
       var id = request.getParameter("id");
-      var catPicture =
-          new File(catPicturesDirectory, (id == null ? RandomUtils.nextInt(1, 11) : id) + ".jpg");
+      // SECURITY FIX (CWE-22): id is attacker-controlled. The check above only inspects the still
+      // URL-encoded query string for ".." and "/", which a request evades by percent-encoding them
+      // (e.g. %2E%2E%2F for ../). Primary control: strip any directory component from the input
+      // before it is used to build a path, so a traversal sequence cannot survive. FilenameUtils
+      // .getName("../../path-traversal-secret") -> "path-traversal-secret"; a bare "../../"
+      // collapses to "" and can only ever address the cats directory itself.
+      var safeName =
+          id == null ? String.valueOf(RandomUtils.nextInt(1, 11)) : FilenameUtils.getName(id);
+      var catPicture = new File(catPicturesDirectory, safeName + ".jpg");
+
+      // Defence in depth: require the resolved file to stay inside the cat-pictures directory.
+      // startsWith on Path is segment-aware, so a sibling like "<base>-evil" cannot slip by either.
+      var baseDir = catPicturesDirectory.getCanonicalFile().toPath();
+      if (!catPicture.getCanonicalFile().toPath().startsWith(baseDir)) {
+        return ResponseEntity.badRequest()
+            .body("Illegal characters are not allowed in the query params");
+      }
 
       if (catPicture.getName().toLowerCase().contains("path-traversal-secret.jpg")) {
         return ResponseEntity.ok()

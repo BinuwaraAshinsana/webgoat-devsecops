@@ -14,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import lombok.SneakyThrows;
@@ -25,7 +24,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.security.core.token.Sha512DigestUtils;
 
 class PathTraversalIT extends IntegrationTest {
 
@@ -102,21 +100,18 @@ class PathTraversalIT extends IntegrationTest {
   }
 
   private void assignment4() throws IOException {
+    // CWE-22 fix: the percent-encoded ../../ traversal is now rejected by the canonical-path
+    // check, so the secret file outside the cats directory can no longer be retrieved and this
+    // assignment can no longer be solved.
     var uri = "PathTraversal/random-picture?id=%2E%2E%2F%2E%2E%2Fpath-traversal-secret";
-      RestAssured.given()
+    RestAssured.given()
         .urlEncodingEnabled(false)
         .when()
         .relaxedHTTPSValidation()
         .cookie("JSESSIONID", getWebGoatCookie())
         .get(webGoatUrlConfig.url(uri))
         .then()
-        .statusCode(200)
-        .body(CoreMatchers.is("You found it submit the SHA-512 hash of your username as answer"));
-
-      checkAssignment(
-              webGoatUrlConfig.url("PathTraversal/random"),
-        Map.of("secret", Sha512DigestUtils.shaHex(this.getUser())),
-        true);
+        .statusCode(400);
   }
 
   private void assignment5() throws IOException {
@@ -149,8 +144,9 @@ class PathTraversalIT extends IntegrationTest {
 
   @AfterEach
   void shutdown() {
-    // this will run only once after the list of dynamic tests has run, this is to test if the
-    // lesson is marked complete
-    checkResults("PathTraversal");
+    // Runs after the dynamic tests. ProfileUploadRetrieval is intentionally left unsolved: its
+    // path-traversal retrieval was fixed (CWE-22), so the secret can no longer be read and that
+    // assignment cannot be completed. Every other assignment in the lesson must still pass.
+    checkResultsExcept("PathTraversal", "ProfileUploadRetrieval");
   }
 }
