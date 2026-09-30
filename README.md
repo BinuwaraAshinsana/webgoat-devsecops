@@ -4,21 +4,34 @@ Secure DevSecOps implementation using OWASP WebGoat.
 
 ## Overview
 
-This project demonstrates how to build, containerize, test, and secure a DevSecOps pipeline around OWASP WebGoat, an intentionally vulnerable web application used for secure coding practice and security testing.
+This project takes OWASP WebGoat, an intentionally vulnerable Java web
+application, and builds a complete DevSecOps workflow around it. WebGoat runs in
+a Docker container and starts with a single command.
+
+The work covers four areas. The application and its companion service WebWolf are
+containerised and brought up with Docker Compose. A STRIDE threat model maps
+realistic threats to specific controls in the code and in the pipeline. Four
+representative vulnerabilities are demonstrated against the running application,
+fixed with secure coding, and re-tested to confirm the exploit no longer works.
+Each fix is backed by before and after static-analysis counts. A GitHub Actions
+pipeline builds and tests the application on every push and runs four automated
+security gates: static analysis, dependency scanning, secret scanning and
+container image scanning. Secrets are provisioned through the environment and are
+never committed to the repository.
 
 ## Team
 
-- M1 — Architecture & Containerisation
-- M2 — Threat Modelling & Risk Assessment
-- M3 — Secure Coding / Exploit-and-Fix
-- M4 — CI/CD Pipeline & Secrets Management
+- [M1] Ashinsana: Architecture & Containerisation
+- [M2] Pasindi: Threat Modelling & Risk Assessment
+- [M3] Risadi: Secure Coding / Exploit-and-Fix
+- [M4] Achin Pasindu: CI/CD Pipeline & Secrets Management
 
 ## Architecture
 
-The application runs inside a Docker container using Java/Spring Boot.
+The application runs inside a Docker container using Java and Spring Boot.
 
-- WebGoat — Port `8080`
-- WebWolf — Port `9090`
+- WebGoat on port `8080`
+- WebWolf on port `9090`
 - Embedded HSQLDB database
 - Docker Desktop used for containerisation
 
@@ -73,8 +86,6 @@ The Windows `Path` environment variable should contain:
 ```text
 %JAVA_HOME%\bin
 ```
-
----
 
 ## Getting Started
 
@@ -159,7 +170,7 @@ docker compose down -v
 
 ## Running the Tests
 
-The test suite runs on the host with the Maven Wrapper — it does not need Docker.
+The test suite runs on the host with the Maven Wrapper. It does not need Docker.
 
 Unit tests only:
 
@@ -188,7 +199,7 @@ A single test class:
 
 Surefire writes reports to `target/surefire-reports/`. Integration tests live in
 `src/it/java` and include Playwright UI tests, which download a browser on first
-run — expect the first `verify` to take noticeably longer.
+run. Expect the first `verify` to take noticeably longer.
 
 If the build fails on formatting rather than on a test, apply the formatter and
 re-run:
@@ -212,15 +223,15 @@ cp .env.example .env
 ```
 
 `.env` is gitignored (`.gitignore` ignores `.env` and `.env.*`, with an explicit
-exception for `.env.example`). Never commit it. If you add a new variable, add
-it to `.env.example` with a placeholder value in the same commit, so the rest of
-the team knows it exists.
+exception for `.env.example`). Never commit it. If you add a new variable, add it
+to `.env.example` with a placeholder value in the same commit, so the rest of the
+team knows it exists.
 
 Every variable name in `.env.example` is read by
 `src/main/resources/application-webgoat.properties` or
-`application-webwolf.properties` — ports, bind addresses, context paths, the TLS
-keystore and the optional GitHub OAuth client credentials used by the OAuth
-lessons.
+`application-webwolf.properties`. These cover ports, bind addresses, context
+paths, the TLS keystore and the optional GitHub OAuth client credentials used by
+the OAuth lessons.
 
 `docker-compose.yml` interpolates these as `${VARIABLE}` and passes them into the
 container, so `docker compose up` picks up whatever is in `.env`. When a variable
@@ -229,17 +240,18 @@ is unset, compose falls back to the harmless development default declared inline
 
 ### Pipeline
 
-Secrets for CI are stored as **GitHub Actions encrypted secrets**
-(Settings → Secrets and variables → Actions) and injected into workflow steps as
-environment variables (`env: SECRET: ${{ secrets.SECRET }}`). They are never
-written into workflow files, and never echoed to the job log.
+Secrets for CI are stored as **GitHub Actions encrypted secrets** (Settings,
+Secrets and variables, Actions) and injected into workflow steps as environment
+variables (`env: SECRET: ${{ secrets.SECRET }}`). They are never written into
+workflow files, and never echoed to the job log.
 
 ### How a secret reaches each place
 
-|      Destination      |                                                                    Path                                                                     |
-|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| The running container | `.env` (gitignored) → compose `${VARIABLE}` interpolation → container environment → Spring reads it via `${VAR}` in the `.properties` files |
-| The CI pipeline       | GitHub Actions encrypted secret → `${{ secrets.NAME }}` → step `env:` → tool/process                                                        |
+For the running container, the value flows from a gitignored `.env` file, through
+compose `${VARIABLE}` interpolation, into the container environment, and is then
+read by Spring via `${VAR}` in the `.properties` files. For the CI pipeline, the
+value is a GitHub Actions encrypted secret exposed to a step as an environment
+variable and passed to the tool.
 
 Neither path stores a real value in git. The **Secrets - Gitleaks** gate in the
 pipeline scans the whole working tree on every push and fails the build if a
@@ -257,9 +269,13 @@ webgoat-devsecops/
 ├── docs/
 │   ├── diagrams/            #   architecture diagram (draw.io source + PNG)
 │   ├── evidence/            #   exploit screenshots and SAST scan output
-│   └── report/              #   technical report drafts
+│   ├── report/              #   technical report
+│   ├── threat-model.md      #   STRIDE threat model and risk assessment
+│   └── industry-case-study.md
+├── .github/workflows/       # CI/CD pipeline (devsecops.yml)
 ├── .mvn/                    # Maven Wrapper files
 ├── .env.example             # Environment variable template (no real values)
+├── .gitleaks.toml           # Secret-scan configuration
 ├── Dockerfile               # Container definition
 ├── docker-compose.yml       # Container orchestration
 ├── pom.xml                  # Maven configuration
@@ -284,11 +300,11 @@ intentionally vulnerable web application developed by the OWASP WebGoat project,
 and is licensed under **GPL-2.0-or-later**. The upstream `LICENSE.txt`,
 `COPYRIGHT.txt` and the per-file SPDX headers are retained unchanged.
 
-As a derivative work, this repository — including our additions (the
+As a derivative work, this repository is also distributed under
+**GPL-2.0-or-later**. That includes the project's own additions: the
 `docker-compose.yml`, the CI/CD workflow, the secure-coding fixes and the
-supporting documentation) — is also distributed under **GPL-2.0-or-later**.
+supporting documentation.
 
 The DevSecOps work in this repository (containerisation, threat modelling,
-secure-coding fixes and the CI/CD pipeline) was carried out by the student
-project team for the IE3142 DevOps Security module and is described in the
-accompanying technical report.
+secure-coding fixes and the CI/CD pipeline) is the project team's own work and is
+described in the accompanying technical report.
