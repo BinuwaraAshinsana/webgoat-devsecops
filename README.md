@@ -276,3 +276,19 @@ public internet.
 
 The Docker Compose configuration publishes the application on `127.0.0.1` only,
 so that WebGoat is not unintentionally exposed on external network interfaces.
+
+## License and Attribution
+
+This project is based on [OWASP WebGoat](https://github.com/WebGoat/WebGoat), an
+intentionally vulnerable web application developed by the OWASP WebGoat project,
+and is licensed under **GPL-2.0-or-later**. The upstream `LICENSE.txt`,
+`COPYRIGHT.txt` and the per-file SPDX headers are retained unchanged.
+
+As a derivative work, this repository — including our additions (the
+`docker-compose.yml`, the CI/CD workflow, the secure-coding fixes and the
+supporting documentation) — is also distributed under **GPL-2.0-or-later**.
+
+The DevSecOps work in this repository (containerisation, threat modelling,
+secure-coding fixes and the CI/CD pipeline) was carried out by the student
+project team for the IE3142 DevOps Security module and is described in the
+accompanying technical report.
